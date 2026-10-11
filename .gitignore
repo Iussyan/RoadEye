@@ -1,0 +1,43 @@
+# Flutter and Dart outputs
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+coverage/
+.tooling/
+
+# Editors and local configuration
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Microsoft/
+.env
+.env.*
+!.env.example
+
+# Native generated files and signing material
+android/.gradle/
+android/local.properties
+android/key.properties
+android/**/build/
+*.jks
+*.keystore
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/ephemeral/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/App.framework/
+ios/Flutter/Flutter.framework/
+**/xcuserdata/
+*.p12
+*.mobileprovision
+*.ipa
+*.apk
+
+# Training belongs in Colab, not in the mobile repository
+datasets/
+runs/
+*.pt
