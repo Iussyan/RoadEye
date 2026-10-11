@@ -8,6 +8,7 @@ void main() {
 
     expect(find.text('RoadEye is running'), findsOneWidget);
     expect(find.text('Ready for your first check'), findsOneWidget);
+    expect(find.text('Start Live Detection'), findsOneWidget);
 
     final checkButton = find.widgetWithText(FilledButton, 'Check app');
     await tester.ensureVisible(checkButton);

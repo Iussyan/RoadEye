@@ -63,7 +63,8 @@ Future<void> bootstrap() async {
     replaceRequired(
       File('$iosPath/Runner/Info.plist'),
       RegExp(r'(<key>CFBundleDisplayName</key>\s*<string>)[^<]*(</string>)'),
-      (match) => '${match[1]}RoadEye${match[2]}',
+      (match) =>
+          '${match[1]}RoadEye${match[2]}\n\t<key>NSCameraUsageDescription</key>\n\t<string>RoadEye requires camera access to detect road damage in real-time.</string>',
     );
     replaceRequired(
       File('$iosPath/Runner.xcodeproj/project.pbxproj'),
@@ -80,6 +81,12 @@ Future<void> bootstrap() async {
     }
   }
   if (missing.contains('android')) {
+    replaceRequired(
+      File('${staging.path}/android/app/src/main/AndroidManifest.xml'),
+      RegExp(r'<application'),
+      (_) =>
+          '<uses-permission android:name="android.permission.CAMERA" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n    <application',
+    );
     replaceRequired(
       File('${staging.path}/android/app/src/main/AndroidManifest.xml'),
       RegExp(r'android:label="[^"]+"'),

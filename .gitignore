@@ -41,3 +41,4 @@ ios/Flutter/Flutter.framework/
 datasets/
 runs/
 *.pt
+/*.tflite

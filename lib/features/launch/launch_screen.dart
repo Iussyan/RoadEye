@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../detector/detector_screen.dart';
+
 class LaunchScreen extends StatefulWidget {
   const LaunchScreen({super.key});
 
@@ -42,7 +44,7 @@ class _LaunchScreenState extends State<LaunchScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Road damage detection, starting with the first step.',
+                    'Road damage detection, powered by YOLO11.',
                     style: textTheme.bodyLarge,
                   ),
                   const SizedBox(height: 32),
@@ -99,14 +101,34 @@ class _LaunchScreenState extends State<LaunchScreen> {
                             ),
                           ),
                         ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFFD7EF9A),
+                              side: const BorderSide(color: Color(0xFFD7EF9A)),
+                              minimumSize: const Size(48, 52),
+                            ),
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const DetectorScreen(),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.camera_alt_outlined),
+                            label: const Text('Start Live Detection'),
+                          ),
+                        ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Text('Launch prototype', style: textTheme.titleMedium),
+                  Text('Road Damage Detector', style: textTheme.titleMedium),
                   const SizedBox(height: 8),
                   Text(
-                    'Camera and detection will be added in the next milestone.',
+                    'Real-time YOLO11 damage detector active. Tap Start Live Detection to scan.',
                     style: textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 32),
