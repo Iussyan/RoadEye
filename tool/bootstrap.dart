@@ -92,6 +92,12 @@ Future<void> bootstrap() async {
       RegExp(r'android:label="[^"]+"'),
       (_) => 'android:label="RoadEye"',
     );
+    final gradleProps = File('${staging.path}/android/gradle.properties');
+    if (gradleProps.existsSync()) {
+      gradleProps.writeAsStringSync(
+        '${gradleProps.readAsStringSync()}\nkotlin.jvm.target.validation.mode=warning\n',
+      );
+    }
   }
 
   // Move only new native directories within the repository. Existing projects

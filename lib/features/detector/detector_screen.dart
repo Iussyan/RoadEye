@@ -116,10 +116,28 @@ class _DetectorScreenState extends State<DetectorScreen>
     }
   }
 
-  void _processCameraFrame(CameraImage image) {
-    if (_isProcessing || _isPaused || !_detector.isModelLoaded) return;
+  DateTime _lastInferenceTime = DateTime.now();
+
+  void _processCameraFrame(CameraImage image) async {
+    final now = DateTime.now();
+    // Throttle inference: wait at least 100ms between runs so camera preview stays 60 FPS
+    if (_isProcessing ||
+        _isPaused ||
+        !_detector.isModelLoaded ||
+        now.difference(_lastInferenceTime).inMilliseconds < 100) {
+      return;
+    }
 
     _isProcessing = true;
+    _lastInferenceTime = now;
+
+    // Yield to UI event loop so camera preview and touch events stay responsive
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted || _isPaused) {
+      _isProcessing = false;
+      return;
+    }
+
     final stopwatch = Stopwatch()..start();
 
     try {
@@ -131,9 +149,9 @@ class _DetectorScreenState extends State<DetectorScreen>
 
       stopwatch.stop();
 
-      final now = DateTime.now();
-      final diff = now.difference(_lastFrameTime).inMilliseconds;
-      _lastFrameTime = now;
+      final elapsed = stopwatch.elapsedMilliseconds;
+      final diff = DateTime.now().difference(_lastFrameTime).inMilliseconds;
+      _lastFrameTime = DateTime.now();
 
       // Haptic pulse when a new damage instance is detected
       if (results.length > _prevDetectionsCount) {
@@ -144,7 +162,7 @@ class _DetectorScreenState extends State<DetectorScreen>
       if (mounted) {
         setState(() {
           _recognitions = results;
-          _inferenceTimeMs = stopwatch.elapsedMilliseconds;
+          _inferenceTimeMs = elapsed;
           if (diff > 0) {
             _fps = (1000.0 / diff);
           }
