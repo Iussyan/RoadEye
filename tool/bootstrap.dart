@@ -70,14 +70,6 @@ Future<void> bootstrap() async {
       RegExp(r'IPHONEOS_DEPLOYMENT_TARGET = [^;]+;'),
       (_) => 'IPHONEOS_DEPLOYMENT_TARGET = 16.0;',
     );
-    final frameworkPlist = File('$iosPath/Flutter/AppFrameworkInfo.plist');
-    if (frameworkPlist.existsSync()) {
-      replaceRequired(
-        frameworkPlist,
-        RegExp(r'(<key>MinimumOSVersion</key>\s*<string>)[^<]*(</string>)'),
-        (match) => '${match[1]}16.0${match[2]}',
-      );
-    }
     final podfile = File('$iosPath/Podfile');
     if (podfile.existsSync()) {
       replaceRequired(
