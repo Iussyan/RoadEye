@@ -73,7 +73,7 @@ jobs:
           version = tuple(map(int, sys.argv[1].split('.')))
           assert version <= (16, 7, 16), f'Build requires iOS {sys.argv[1]}'
           PY
-          lipo -verify_arch arm64 "$app/Runner"
+          lipo -archs "$app/Runner" | tr ' ' '\n' | grep -qx arm64
           mkdir -p build/altstore/Payload
           cp -R "$app" build/altstore/Payload/Runner.app
           cd build/altstore
