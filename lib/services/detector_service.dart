@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image/image.dart' as img_pkg;
 import 'package:tflite_flutter/tflite_flutter.dart';
 
 import '../models/recognition.dart';
@@ -132,6 +133,63 @@ class DetectorService {
 
     // 3. Fast detection decoding directly from _outputBuffer
     return _parseOutputFast(scoreThreshold, iouThreshold);
+  }
+
+  /// Run inference on a still photo File.
+  Future<List<Recognition>> detectOnImageFile(
+    File imageFile, {
+    double scoreThreshold = 0.25,
+    double iouThreshold = 0.45,
+  }) async {
+    if (_interpreter == null || _inputBuffer == null || _outputBuffer == null) {
+      final success = await initialize();
+      if (!success) return [];
+    }
+
+    try {
+      final bytes = await imageFile.readAsBytes();
+      final decoded = img_pkg.decodeImage(bytes);
+      if (decoded == null) return [];
+
+      final resized = img_pkg.copyResize(
+        decoded,
+        width: _inputSize,
+        height: _inputSize,
+      );
+
+      const inv255 = 1.0 / 255.0;
+      final input = _inputBuffer!;
+      final channelStride = _inputSize * _inputSize;
+      final gOffset = channelStride;
+      final bOffset = channelStride * 2;
+
+      for (int y = 0; y < _inputSize; y++) {
+        for (int x = 0; x < _inputSize; x++) {
+          final pixel = resized.getPixel(x, y);
+          final r = pixel.r;
+          final g = pixel.g;
+          final b = pixel.b;
+
+          final idx = y * _inputSize + x;
+          if (_isBCHW) {
+            input[idx] = r * inv255;
+            input[gOffset + idx] = g * inv255;
+            input[bOffset + idx] = b * inv255;
+          } else {
+            final bhwcIdx = idx * 3;
+            input[bhwcIdx] = r * inv255;
+            input[bhwcIdx + 1] = g * inv255;
+            input[bhwcIdx + 2] = b * inv255;
+          }
+        }
+      }
+
+      _interpreter!.run(_inputBuffer!.buffer, _outputBuffer!.buffer);
+      return _parseOutputFast(scoreThreshold, iouThreshold);
+    } catch (e) {
+      debugPrint('Error detecting on still photo: $e');
+      return [];
+    }
   }
 
   void _ensureLookupTables(int srcW, int srcH) {

@@ -64,7 +64,13 @@ Future<void> bootstrap() async {
       File('$iosPath/Runner/Info.plist'),
       RegExp(r'(<key>CFBundleDisplayName</key>\s*<string>)[^<]*(</string>)'),
       (match) =>
-          '${match[1]}RoadEye${match[2]}\n\t<key>NSCameraUsageDescription</key>\n\t<string>RoadEye requires camera access to detect road damage in real-time.</string>',
+          '${match[1]}RoadEye${match[2]}'
+          '\n\t<key>NSCameraUsageDescription</key>'
+          '\n\t<string>RoadEye requires camera access to detect road damage in real-time.</string>'
+          '\n\t<key>NSPhotoLibraryAddUsageDescription</key>'
+          '\n\t<string>RoadEye saves road damage snapshots to your photo gallery.</string>'
+          '\n\t<key>NSPhotoLibraryUsageDescription</key>'
+          '\n\t<string>RoadEye accesses your photo library to view saved snapshots.</string>',
     );
     replaceRequired(
       File('$iosPath/Runner.xcodeproj/project.pbxproj'),

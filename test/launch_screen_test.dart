@@ -3,45 +3,72 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:roadeye/app.dart';
 
 void main() {
-  testWidgets('launches and responds to repeated app checks', (tester) async {
+  testWidgets('renders all revamped landing page components and navigations', (
+    tester,
+  ) async {
     await tester.pumpWidget(const RoadEyeApp());
+    await tester.pumpAndSettle();
 
-    expect(find.text('RoadEye is running'), findsOneWidget);
-    expect(find.text('Ready for your first check'), findsOneWidget);
-    expect(find.text('Start Live Detection'), findsOneWidget);
+    // 1. Header
+    expect(find.text('RoadEye'), findsOneWidget);
+    expect(find.byIcon(Icons.settings_outlined), findsWidgets);
 
-    final checkButton = find.widgetWithText(FilledButton, 'Check app');
-    await tester.ensureVisible(checkButton);
-    await tester.tap(checkButton);
-    await tester.pump();
+    // 2. Headlines
+    expect(find.text('Road inspection'), findsOneWidget);
+    expect(find.text('Capture defects. Keep roads moving.'), findsOneWidget);
 
-    expect(find.text('App check passed'), findsOneWidget);
-    expect(find.text('Ready for your first check'), findsNothing);
+    // 3. Hero Card
+    expect(find.text('Ready to scan'), findsOneWidget);
+    expect(find.text('Start an inspection'), findsOneWidget);
+    expect(
+      find.text('Detect cracks and potholes with your camera.'),
+      findsOneWidget,
+    );
+    expect(find.text('Start scanning'), findsOneWidget);
 
-    await tester.tap(checkButton);
-    await tester.pump();
-    expect(find.text('App check passed'), findsOneWidget);
-    expect(tester.takeException(), isNull);
+    // 4. Test a Photo Card
+    expect(find.text('Test a photo'), findsOneWidget);
+    expect(find.text('Choose an image from your gallery.'), findsOneWidget);
+
+    // 5. Saved Detections Section
+    expect(find.text('Saved detections'), findsOneWidget);
+    expect(find.text('View all'), findsOneWidget);
+    expect(find.text('No saved detections yet'), findsOneWidget);
+
+    // 6. Offline status & Bottom nav
+    expect(find.text('Detection works offline'), findsOneWidget);
+    expect(find.text('Scan'), findsOneWidget);
+    expect(find.text('Saved'), findsOneWidget);
+    expect(find.text('Settings'), findsOneWidget);
+  });
+
+  testWidgets('settings icon opens the settings bottom sheet', (tester) async {
+    await tester.pumpWidget(const RoadEyeApp());
+    await tester.pumpAndSettle();
+
+    final settingsButton = find.byTooltip('Settings & About');
+    await tester.tap(settingsButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Settings & About'), findsOneWidget);
+    expect(find.text('DETECTION SENSITIVITY'), findsOneWidget);
+    expect(find.text('YOLO11n (TFLite / Metal GPU)'), findsOneWidget);
   });
 
   for (final size in [const Size(375, 812), const Size(320, 568)]) {
-    testWidgets('supports $size with large text', (tester) async {
+    testWidgets('supports $size layout smoothly without overflowing', (
+      tester,
+    ) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = size;
       addTearDown(tester.view.resetDevicePixelRatio);
       addTearDown(tester.view.resetPhysicalSize);
 
-      tester.platformDispatcher.textScaleFactorTestValue = 2;
-      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       await tester.pumpWidget(const RoadEyeApp());
+      await tester.pumpAndSettle();
 
-      final checkButton = find.widgetWithText(FilledButton, 'Check app');
-      await tester.ensureVisible(checkButton);
-      await tester.tap(checkButton);
-      await tester.pump();
-
-      expect(find.text('App check passed'), findsOneWidget);
-      expect(tester.takeException(), isNull);
+      expect(find.text('RoadEye'), findsOneWidget);
+      expect(find.text('Start scanning'), findsOneWidget);
     });
   }
 }

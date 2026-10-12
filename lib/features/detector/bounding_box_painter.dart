@@ -1,17 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../models/recognition.dart';
 
-/// Paints road damage bounding boxes with iOS-styled frosted badges and rounded outlines.
+/// Paints thin, clean bounding boxes with plain damage names attached.
 class BoundingBoxPainter extends CustomPainter {
-  BoundingBoxPainter({
-    required this.recognitions,
-    required this.previewSize,
-    required this.screenSize,
-  });
+  BoundingBoxPainter({required this.recognitions});
 
   final List<Recognition> recognitions;
-  final Size previewSize;
-  final Size screenSize;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -21,47 +15,38 @@ class BoundingBoxPainter extends CustomPainter {
       final color = recognition.color;
       final rect = _scaleRect(recognition.location, size);
 
-      // 1. Semi-translucent damage fill
+      // 1. Subtle damage area tint
       final fillPaint = Paint()
-        ..color = color.withValues(alpha: 0.12)
+        ..color = color.withValues(alpha: 0.08)
         ..style = PaintingStyle.fill;
 
-      final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(8));
+      final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(6));
       canvas.drawRRect(rrect, fillPaint);
 
-      // 2. Refined hairline boundary
+      // 2. Clean thin outline
       final boxPaint = Paint()
         ..color = color
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5;
+        ..strokeWidth = 1.8;
       canvas.drawRRect(rrect, boxPaint);
 
-      // 3. Label text layout
+      // 3. Plain name and confidence text (e.g. "Pothole 92%")
       final percentage = (recognition.score * 100).toStringAsFixed(0);
       final textSpan = TextSpan(
         children: [
           TextSpan(
-            text: '${recognition.label} ',
+            text: '${recognition.title} ',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
-            ),
-          ),
-          TextSpan(
-            text: '• ${recognition.title} ',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
             ),
           ),
           TextSpan(
             text: '$percentage%',
             style: TextStyle(
               color: color,
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -73,14 +58,14 @@ class BoundingBoxPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       )..layout();
 
-      const badgeHeight = 22.0;
-      final badgeWidth = textPainter.width + 16.0;
+      const badgeHeight = 20.0;
+      final badgeWidth = textPainter.width + 12.0;
 
-      // Position badge directly above top-left, or clamp inside if hitting screen edge
-      final badgeTop = (rect.top - badgeHeight - 4) < 4
-          ? (rect.top + 4)
-          : (rect.top - badgeHeight - 4);
-      final badgeLeft = rect.left.clamp(4.0, size.width - badgeWidth - 4.0);
+      // Position badge directly above top-left, or inside if near screen edge
+      final badgeTop = (rect.top - badgeHeight - 2) < 2
+          ? (rect.top + 2)
+          : (rect.top - badgeHeight - 2);
+      final badgeLeft = rect.left.clamp(2.0, size.width - badgeWidth - 2.0);
 
       final badgeRect = Rect.fromLTWH(
         badgeLeft,
@@ -90,23 +75,22 @@ class BoundingBoxPainter extends CustomPainter {
       );
       final badgeRRect = RRect.fromRectAndRadius(
         badgeRect,
-        const Radius.circular(11),
+        const Radius.circular(5),
       );
 
-      // 4. Frosted dark pill background with subtle colored border
+      // 4. Compact frosted badge background
       final badgeBgPaint = Paint()
-        ..color = const Color(0xE6141416)
+        ..color = const Color(0xDD121214)
         ..style = PaintingStyle.fill;
       canvas.drawRRect(badgeRRect, badgeBgPaint);
 
       final badgeBorderPaint = Paint()
-        ..color = color.withValues(alpha: 0.6)
+        ..color = color.withValues(alpha: 0.4)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0;
+        ..strokeWidth = 0.8;
       canvas.drawRRect(badgeRRect, badgeBorderPaint);
 
-      // 5. Draw text inside badge
-      textPainter.paint(canvas, Offset(badgeLeft + 8.0, badgeTop + 3.5));
+      textPainter.paint(canvas, Offset(badgeLeft + 6.0, badgeTop + 2.5));
     }
   }
 

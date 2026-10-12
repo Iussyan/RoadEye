@@ -12,8 +12,8 @@ class RoadEyeApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF234E45)),
-        scaffoldBackgroundColor: const Color(0xFFF5F6F2),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0066FF)),
+        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
       ),
       home: const LaunchScreen(),
     );
