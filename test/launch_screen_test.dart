@@ -52,7 +52,8 @@ void main() {
 
     expect(find.text('Settings & About'), findsOneWidget);
     expect(find.text('DETECTION SENSITIVITY'), findsOneWidget);
-    expect(find.text('YOLO11n (TFLite / Metal GPU)'), findsOneWidget);
+    expect(find.text('YOLOv8 Small RDD (TFLite)'), findsOneWidget);
+    expect(find.text('YOLO11n (TFLite / Metal GPU)'), findsNothing);
   });
 
   for (final size in [const Size(375, 812), const Size(320, 568)]) {

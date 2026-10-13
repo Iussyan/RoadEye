@@ -2,6 +2,14 @@
 
 ## Model change request — 2026-10-13
 
+CI follow-up: the user reported the settings-bottom-sheet test failing after
+the switch. Its assertion still expected the YOLO11n name. Updated
+`test/launch_screen_test.dart` to expect YOLOv8 Small RDD and reject the old
+name. Reviewed against the actual settings widget; `git diff --check` passed.
+The host Flutter executable became accessible, but an attempted full
+`flutter test` run produced no output and no confirmed result before being
+interrupted. Rerun CI to confirm the suite passes; do not report a local pass.
+
 Update: The user supplied the validated Colab export in
 `RoadEye-YOLOv8-Small-RDD/`. Installed its `best.tflite`, `labels.txt`, and
 `model.json` in `assets/models/`. Source SHA-256 matches the original checkpoint;
