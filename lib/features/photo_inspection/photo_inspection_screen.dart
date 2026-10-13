@@ -156,7 +156,7 @@ class _PhotoInspectionScreenState extends State<PhotoInspectionScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Text(
-                            'YOLO11 Detected',
+                            'Damage detected',
                             style: TextStyle(
                               color: Color(0xFFD7EF9A),
                               fontSize: 11,

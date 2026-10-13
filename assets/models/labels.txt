@@ -1,4 +1,4 @@
-D00
-D10
-D20
-D40
+Longitudinal Crack
+Transverse Crack
+Alligator Crack
+Potholes

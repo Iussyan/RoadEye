@@ -89,7 +89,7 @@ class _SettingsSheetState extends State<SettingsSheet> {
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 12),
-            _buildInfoTile('Engine Model', 'YOLO11n (TFLite / Metal GPU)'),
+            _buildInfoTile('Engine Model', 'YOLOv8 Small RDD (TFLite)'),
             _buildInfoTile('Target Dataset', 'RDD2022 (India & Global)'),
             _buildInfoTile(
               'Offline Status',

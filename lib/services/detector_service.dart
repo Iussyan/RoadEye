@@ -8,7 +8,7 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 
 import '../models/recognition.dart';
 
-/// High-performance YOLO11 TFLite detector with Metal GPU acceleration and zero-copy buffers.
+/// YOLO TFLite detector with optional Metal GPU acceleration.
 class DetectorService {
   DetectorService({
     this.modelPath = 'assets/models/best.tflite',

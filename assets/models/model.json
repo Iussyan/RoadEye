@@ -1,0 +1,24 @@
+{
+  "source_checkpoint": "YOLOv8_Small_RDD (1).pt",
+  "source_sha256": "7f2ceb8f6f3dfcc8fffd98cb488281be725150aed0f06cf21c4db72b5cd0a62b",
+  "export_sha256": "9d36a1a653574c222b9a13d712f89323c6595cc7d77b708b0ea517f21639eab1",
+  "input_shape": [
+    1,
+    640,
+    640,
+    3
+  ],
+  "output_shape": [
+    1,
+    8,
+    8400
+  ],
+  "labels": [
+    "Longitudinal Crack",
+    "Transverse Crack",
+    "Alligator Crack",
+    "Potholes"
+  ],
+  "nms": false,
+  "precision": "float32"
+}

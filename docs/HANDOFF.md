@@ -1,5 +1,32 @@
 # RoadEye agent handoff
 
+## Model change request — 2026-10-13
+
+Update: The user supplied the validated Colab export in
+`RoadEye-YOLOv8-Small-RDD/`. Installed its `best.tflite`, `labels.txt`, and
+`model.json` in `assets/models/`. Source SHA-256 matches the original checkpoint;
+export SHA-256 matches metadata. Tensor shapes are `[1,640,640,3]` and
+`[1,8,8400]`. Old assets are preserved in
+`.tooling/model-backup-5c832f5e84da4f768cd1a30b4355e594/`.
+Settings identify YOLOv8 Small RDD. Recognition mappings and a regression test
+cover the checkpoint's human-readable labels and original RDD class colors.
+The model asset replacement is complete; build, Flutter tests, and iPhone
+inference are still unverified. Earlier conversion-pending notes are historical.
+
+The user now requests `YOLOv8_Small_RDD.pt`, replacing the original YOLO11n
+plan. The checkpoint exists at the repository root. The application has since
+gained camera/photo inference through `lib/services/detector_service.dart` and
+currently loads `assets/models/best.tflite`; older milestone notes below are
+historical and no longer describe the full current application.
+
+`tool/export_rdd_model.py` and `docs/MODEL_SWITCH.md` prepare a validated Colab
+float32 export and matching class labels. Python is unavailable on the agent's
+PATH; conversion and device validation have not run. The existing TFLite asset
+is preserved and remains active. Next agent: complete the documented export,
+install its model/labels/metadata together, rebuild, and verify known photos
+and iPhone inference before reporting the model switch complete. UI model
+wording is now neutral rather than claiming YOLO11n for an unverified asset.
+
 Updated: **2026-10-12**. Read this file and `AGENTS.md` before continuing work.
 Update this document after significant changes or before ending a work session.
 

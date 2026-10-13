@@ -29,12 +29,16 @@ class Recognition {
   Color get color {
     switch (label) {
       case 'D00':
+      case 'Longitudinal Crack':
         return const Color(0xFF3B82F6); // Blue: Longitudinal Crack
       case 'D10':
+      case 'Transverse Crack':
         return const Color(0xFF10B981); // Green: Transverse Crack
       case 'D20':
+      case 'Alligator Crack':
         return const Color(0xFFF59E0B); // Amber: Alligator Crack
       case 'D40':
+      case 'Potholes':
         return const Color(0xFFEF4444); // Red: Pothole
       default:
         return const Color(0xFF8B5CF6);
@@ -46,6 +50,7 @@ class Recognition {
     'D10': 'Transverse Crack',
     'D20': 'Alligator Crack',
     'D40': 'Pothole',
+    'Potholes': 'Pothole',
   };
 
   static String titleForLabel(String label) {
