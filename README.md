@@ -1,11 +1,15 @@
 # RoadEye
 
+For standalone Python webcam/video detection with the existing model, see
+[Python real-time detector](docs/PYTHON_DETECTOR.md).
+
 Flutter prototype for detecting road damage on Android and iOS. The first
 milestone is an app that installs and opens on an **iPhone X, iOS 16.7.16**.
 
-The launch screen works offline and includes a **Check app** button that changes
-the status to **App check passed**. Camera access and YOLO inference are future
-milestones; the current app does not perform detection.
+The app includes live camera detection, photo inspection, and a saved-snapshot
+gallery using the bundled YOLOv8 Small RDD TFLite model. Live inference runs in a
+background isolate so the preview does not wait for each prediction. See
+[in-app detection and validation](docs/APP_DETECTION.md) for usage and limitations.
 
 ## Start here
 
@@ -61,6 +65,5 @@ tool/bootstrap.dart                 Native project generation
 docs/                               Setup, installation, and handoff
 ```
 
-The host's package metadata points to Flutter 3.47.6, but this agent's sandbox
-cannot access that SDK. Application tests and builds have not been executed
-here; see the handoff for exact limitations.
+Use Flutter 3.47.6. See the handoff for the latest validation results; desktop
+unit/widget checks do not establish native inference or iPhone performance.

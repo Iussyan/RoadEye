@@ -31,6 +31,7 @@ class _PhotoInspectionScreenState extends State<PhotoInspectionScreen> {
   bool _isAnalyzing = true;
   List<Recognition> _recognitions = [];
   bool _isSaved = false;
+  String? _analysisError;
 
   @override
   void initState() {
@@ -41,14 +42,30 @@ class _PhotoInspectionScreenState extends State<PhotoInspectionScreen> {
   }
 
   Future<void> _analyzePhoto() async {
-    setState(() => _isAnalyzing = true);
-    final results = await _detector.detectOnImageFile(widget.imageFile);
-    if (mounted) {
-      setState(() {
-        _recognitions = results;
-        _isAnalyzing = false;
-      });
+    setState(() {
+      _isAnalyzing = true;
+      _analysisError = null;
+    });
+    try {
+      final results = await _detector.detectOnImageFile(widget.imageFile);
+      if (mounted) {
+        setState(() => _recognitions = results);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _analysisError = error.toString());
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isAnalyzing = false);
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    if (widget.detectorService == null) _detector.dispose();
+    super.dispose();
   }
 
   Future<void> _saveResult() async {
@@ -87,8 +104,17 @@ class _PhotoInspectionScreenState extends State<PhotoInspectionScreen> {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  Image.file(widget.imageFile, fit: BoxFit.contain),
-                  if (!_isAnalyzing && _recognitions.isNotEmpty)
+                  Image.file(
+                    widget.imageFile,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, error, stackTrace) => const Text(
+                      'Photo preview unavailable',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  if (!_isAnalyzing &&
+                      _analysisError == null &&
+                      _recognitions.isNotEmpty)
                     Positioned.fill(
                       child: CustomPaint(
                         painter: BoundingBoxPainter(
@@ -136,6 +162,8 @@ class _PhotoInspectionScreenState extends State<PhotoInspectionScreen> {
                       Text(
                         _isAnalyzing
                             ? 'Scanning...'
+                            : _analysisError != null
+                            ? 'Photo analysis failed'
                             : '${_recognitions.length} Defects Found',
                         style: const TextStyle(
                           color: Colors.white,
@@ -143,7 +171,9 @@ class _PhotoInspectionScreenState extends State<PhotoInspectionScreen> {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      if (!_isAnalyzing && _recognitions.isNotEmpty)
+                      if (!_isAnalyzing &&
+                          _analysisError == null &&
+                          _recognitions.isNotEmpty)
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
@@ -167,7 +197,19 @@ class _PhotoInspectionScreenState extends State<PhotoInspectionScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  if (!_isAnalyzing && _recognitions.isEmpty)
+                  if (!_isAnalyzing && _analysisError != null) ...[
+                    Text(
+                      _analysisError!,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _analyzePhoto,
+                      child: const Text('Retry analysis'),
+                    ),
+                  ] else if (!_isAnalyzing && _recognitions.isEmpty)
                     const Text(
                       'No cracks or potholes detected in this photo.',
                       style: TextStyle(color: Colors.white60, fontSize: 13),
@@ -208,7 +250,10 @@ class _PhotoInspectionScreenState extends State<PhotoInspectionScreen> {
                         backgroundColor: const Color(0xFF0066FF),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
-                      onPressed: _isSaved ? null : _saveResult,
+                      onPressed:
+                          _isSaved || _isAnalyzing || _analysisError != null
+                          ? null
+                          : _saveResult,
                       icon: Icon(_isSaved ? Icons.check : Icons.download),
                       label: Text(
                         _isSaved ? 'Saved to Gallery' : 'Save Result',

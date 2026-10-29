@@ -5,6 +5,9 @@
 .packages
 build/
 coverage/
+.venv/
+__pycache__/
+*.pyc
 .tooling/
 
 # Editors and local configuration

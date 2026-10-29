@@ -3,9 +3,10 @@ import '../../models/recognition.dart';
 
 /// Paints thin, clean bounding boxes with plain damage names attached.
 class BoundingBoxPainter extends CustomPainter {
-  BoundingBoxPainter({required this.recognitions});
+  BoundingBoxPainter({required this.recognitions, this.mirror = false});
 
   final List<Recognition> recognitions;
+  final bool mirror;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -96,7 +97,7 @@ class BoundingBoxPainter extends CustomPainter {
 
   Rect _scaleRect(Rect normalized, Size targetSize) {
     return Rect.fromLTWH(
-      normalized.left * targetSize.width,
+      (mirror ? 1 - normalized.right : normalized.left) * targetSize.width,
       normalized.top * targetSize.height,
       normalized.width * targetSize.width,
       normalized.height * targetSize.height,
@@ -105,6 +106,7 @@ class BoundingBoxPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant BoundingBoxPainter oldDelegate) {
-    return oldDelegate.recognitions != recognitions;
+    return oldDelegate.recognitions != recognitions ||
+        oldDelegate.mirror != mirror;
   }
 }

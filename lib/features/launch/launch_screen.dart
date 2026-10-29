@@ -62,6 +62,11 @@ class _LaunchScreenState extends State<LaunchScreen> {
       }
     } catch (e) {
       debugPrint('Error picking image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open the photo picker: $e')),
+        );
+      }
     }
   }
 

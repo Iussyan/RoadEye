@@ -11,7 +11,31 @@ class _FakeDetectorService extends DetectorService {
   bool get isModelLoaded => true;
 }
 
+class _FailingDetectorService extends DetectorService {
+  @override
+  Future<bool> initialize() async {
+    initializationError = 'Invalid model';
+    return false;
+  }
+}
+
 void main() {
+  testWidgets('failed model loading never claims to be scanning', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DetectorScreen(
+          detectorService: _FailingDetectorService(),
+          cameraPreviewOverride: const SizedBox(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Invalid model'), findsOneWidget);
+    expect(find.text('Scanning'), findsNothing);
+    expect(find.text('Retry connection'), findsOneWidget);
+  });
   Widget buildTestApp({Widget? child}) {
     return MaterialApp(
       home:

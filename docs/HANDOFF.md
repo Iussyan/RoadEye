@@ -1,5 +1,76 @@
 # RoadEye agent handoff
 
+## In-app asynchronous detection — 2026-10-30
+
+The Flutter app now follows the Python detector's scheduling approach.
+`DetectorService` loads assets on the root isolate and starts a persistent
+worker that owns the CPU interpreter (two threads), camera/photo preprocessing,
+YOLO decoding, and class-aware NMS. Only one request can be in flight.
+`LiveDetectionController` drops frames while busy, expires boxes 1.5 seconds
+after the source frame, and invalidates results across pause, rotation, camera
+changes, and disposal. Preview painting is isolated with repaint boundaries;
+telemetry counts camera frames independently from inference completions.
+
+Fixed YUV NHWC packing, added aspect-preserving letterboxing and inverse box
+mapping, Android sensor/device rotation, normalized output decoding, photo EXIF
+orientation, and model tensor-contract validation. Verified the pinned
+AVFoundation source rotates stream buffers and mirrors front-camera buffers;
+iOS boxes are therefore not mirrored a second time. Camera reinitialization and
+disposal are serialized. Model failures now show errors with Retry; captured
+photos are analyzed before their saved summaries are generated. Existing
+uncommitted Flutter/photo changes and the standalone Python tool were preserved.
+
+Located the actual host SDK at `D:\Users\QCU\flutter` (Flutter 3.47.6,
+Dart 3.13.5). `flutter pub get` succeeded, static analysis reported no issues,
+and all 26 unit/widget tests passed. New tests cover frame dropping with a
+pending inference, expiry, invalidation, error propagation, tensor layouts,
+stride padding, rotation, letterboxing, decoder layouts/NMS, and model failures.
+An intentional mutation removing the busy guard failed the frame-dropping test
+as expected (20 unwanted submissions); the source was restored and all three
+scheduling tests passed again. The retained restoration copy is in ignored
+`.tooling/live_detection_controller.before-mutation.dart`.
+See `docs/APP_DETECTION.md` for usage and device validation. Native inference,
+iOS/Android builds, installation, actual preview FPS, and accuracy are not
+verified by these desktop tests. Rebuild/reinstall the app before device testing.
+The settings sensitivity slider remains disconnected; inference uses 0.25
+confidence and 0.45 IoU. TFLite's fixed 640 input and PyTorch's default 416 input
+mean numerical/FPS parity is not guaranteed.
+
+## Standalone Python detector — 2026-10-30
+
+Added `tool/realtime_detector.py` using the existing root
+`YOLOv8_Small_RDD.pt`. Capture uses a background thread, inference owns the
+model in a spawned process, and OpenCV displays the latest feed independently.
+Bounded queues drop pending frames; boxes include class/confidence and expire
+after a configurable age. Includes camera/file/stream sources, CPU/GPU options,
+FPS/inference telemetry, shutdown handling, dependency requirements, and
+`docs/PYTHON_DETECTOR.md`. Three dependency-free regression tests exercise
+bounded frame replacement and capture handoff. `git diff --check` passed.
+Python is not available on PATH here, so tests, dependency installation, model
+execution, camera access, and achieved FPS remain unverified. Existing Flutter
+changes were preserved. Run the documented setup and webcam validation next.
+
+## Photo inference diagnosis — 2026-10-13
+
+User reports Test photo/model inference not working. Confirmed code defect:
+`detectOnImageFile` converted model initialization, decode, and inference
+errors into empty detections, and the photo screen presented those as no damage.
+Picker errors were only logged. Now photo inference propagates errors; the
+screen shows the error and Retry analysis, disables saving failed/in-progress
+analysis, and disposes its owned detector. Picker errors show a snackbar.
+Added `test/photo_inspection_screen_test.dart` to prevent a model-loading error
+from appearing as a successful zero-detection result. Review confirms the
+native bootstrap already includes iOS camera/photo privacy descriptions.
+
+Dart formatting completed, but telemetry persistence then failed outside the
+workspace. A direct Flutter test invocation failed accessing the host SDK's
+`bin/cache/lockfile`; tests are not verified locally. `git diff --check` passed.
+The exact device failure is not yet known: install a new release and capture
+the visible error. Current model is bundled, but no real iPhone inference or
+accuracy test has passed. Existing detector widget tests use a fake detector
+and cannot establish native model/runtime compatibility. Still-image decoding
+can reject unsupported formats such as HEIC; try JPEG/PNG if that error appears.
+
 ## Model change request — 2026-10-13
 
 CI follow-up: the user reported the settings-bottom-sheet test failing after

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../../models/recognition.dart';
 import '../../services/detector_service.dart';
+import '../../services/live_detection_controller.dart';
 import '../../services/snapshot_storage_service.dart';
 import '../gallery/snapshot_gallery_screen.dart';
 import 'bounding_box_painter.dart';
@@ -33,12 +35,17 @@ class _DetectorScreenState extends State<DetectorScreen>
     with WidgetsBindingObserver {
   late final DetectorService _detector;
   late final SnapshotStorageService _storage;
+  late final LiveDetectionController _liveDetection;
   CameraController? _cameraController;
   List<CameraDescription> _availableCameras = [];
   int _selectedCameraIndex = 0;
 
   bool _isInitialized = false;
-  bool _isProcessing = false;
+  bool _isSwitchingCamera = false;
+  bool _isSaving = false;
+  bool _appActive = true;
+  int _cameraGeneration = 0;
+  Future<void> _cameraOperation = Future<void>.value();
   bool _isPaused = false;
   bool _isTorchOn = false;
   bool _isFlashing = false;
@@ -49,8 +56,9 @@ class _DetectorScreenState extends State<DetectorScreen>
   List<Recognition> _recognitions = [];
   int _prevDetectionsCount = 0;
   int _inferenceTimeMs = 0;
-  DateTime _lastFrameTime = DateTime.now();
-  DateTime _lastInferenceTime = DateTime.now();
+  final Stopwatch _feedWatch = Stopwatch()..start();
+  int _feedFrames = 0;
+  DeviceOrientation? _frameOrientation;
   double _fps = 0.0;
 
   @override
@@ -59,14 +67,35 @@ class _DetectorScreenState extends State<DetectorScreen>
     WidgetsBinding.instance.addObserver(this);
     _detector = widget.detectorService ?? DetectorService();
     _storage = widget.storageService ?? SnapshotStorageService();
+    _liveDetection = LiveDetectionController(
+      onResult: (results, elapsed) {
+        if (!mounted || _isPaused) return;
+        if (results.length > _prevDetectionsCount) {
+          HapticFeedback.selectionClick();
+        }
+        _prevDetectionsCount = results.length;
+        setState(() {
+          _recognitions = results;
+          _inferenceTimeMs = elapsed.inMilliseconds;
+        });
+      },
+      onError: (error) {
+        if (mounted) setState(() => _errorMessage = 'Detection failed: $error');
+      },
+    );
     _setupDetectorAndCamera();
   }
 
   Future<void> _setupDetectorAndCamera() async {
     try {
+      if (mounted) setState(() => _errorMessage = null);
       final modelLoaded = await _detector.initialize();
-      if (!modelLoaded && mounted) {
-        debugPrint('Model could not be loaded; running in preview mode.');
+      if (!mounted) return;
+      if (!modelLoaded) {
+        throw StateError(
+          _detector.initializationError ??
+              'Could not load the detection model.',
+        );
       }
 
       if (widget.cameraPreviewOverride != null) {
@@ -84,6 +113,7 @@ class _DetectorScreenState extends State<DetectorScreen>
       } else {
         _availableCameras = await availableCameras();
       }
+      if (!mounted || !_appActive) return;
 
       if (_availableCameras.isEmpty) {
         if (mounted) {
@@ -99,7 +129,7 @@ class _DetectorScreenState extends State<DetectorScreen>
       );
       _selectedCameraIndex = rearIndex >= 0 ? rearIndex : 0;
 
-      await _initCamera(_availableCameras[_selectedCameraIndex]);
+      await _replaceCamera(_availableCameras[_selectedCameraIndex]);
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -109,26 +139,54 @@ class _DetectorScreenState extends State<DetectorScreen>
     }
   }
 
-  Future<void> _initCamera(CameraDescription camera) async {
+  Future<void> _replaceCamera(CameraDescription? camera) {
+    final generation = ++_cameraGeneration;
+    _liveDetection.invalidate();
+    _recognitions = [];
+    _cameraOperation = _cameraOperation
+        .then((_) async {
+          final previous = _cameraController;
+          _cameraController = null;
+          await previous?.dispose();
+          if (!mounted || generation != _cameraGeneration || camera == null) {
+            return;
+          }
+          await _initCamera(camera, generation);
+        })
+        .catchError((Object error) {
+          if (mounted && generation == _cameraGeneration) {
+            setState(() => _errorMessage = 'Camera error: $error');
+          }
+        });
+    return _cameraOperation;
+  }
+
+  Future<void> _initCamera(CameraDescription camera, int generation) async {
     final controller = CameraController(
       camera,
       ResolutionPreset.medium,
       enableAudio: false,
-      imageFormatGroup: ImageFormatGroup.bgra8888,
+      imageFormatGroup: Platform.isIOS
+          ? ImageFormatGroup.bgra8888
+          : ImageFormatGroup.yuv420,
     );
 
     _cameraController = controller;
 
     try {
       await controller.initialize();
-      if (!mounted) return;
+      if (!mounted || generation != _cameraGeneration) return;
 
       await controller.startImageStream(_processCameraFrame);
+      if (!mounted || generation != _cameraGeneration) return;
 
       setState(() {
         _isInitialized = true;
         _errorMessage = null;
         _isTorchOn = false;
+        _frameOrientation = null;
+        _feedFrames = 0;
+        _feedWatch.reset();
       });
     } on CameraException catch (e) {
       if (mounted) {
@@ -139,61 +197,58 @@ class _DetectorScreenState extends State<DetectorScreen>
     }
   }
 
-  void _processCameraFrame(CameraImage image) async {
-    final now = DateTime.now();
-    // Throttle inference: wait at least 100ms between runs so camera preview stays 60 FPS
-    if (_isProcessing ||
-        _isPaused ||
-        !_detector.isModelLoaded ||
-        now.difference(_lastInferenceTime).inMilliseconds < 100) {
-      return;
-    }
-
-    _isProcessing = true;
-    _lastInferenceTime = now;
-
-    // Yield to UI event loop so camera preview and touch events stay responsive
-    await Future<void>.delayed(Duration.zero);
-    if (!mounted || _isPaused) {
-      _isProcessing = false;
-      return;
-    }
-
-    final stopwatch = Stopwatch()..start();
-
-    try {
-      final results = _detector.detectOnCameraImage(
-        image,
-        scoreThreshold: 0.25,
-        iouThreshold: 0.45,
+  void _processCameraFrame(CameraImage image) {
+    if (!mounted) return;
+    _feedFrames++;
+    if (_feedWatch.elapsedMilliseconds >= 1000) {
+      setState(
+        () => _fps = _feedFrames * 1000 / _feedWatch.elapsedMilliseconds,
       );
-
-      stopwatch.stop();
-
-      final elapsed = stopwatch.elapsedMilliseconds;
-      final diff = DateTime.now().difference(_lastFrameTime).inMilliseconds;
-      _lastFrameTime = DateTime.now();
-
-      // Haptic pulse when a new damage instance is detected
-      if (results.length > _prevDetectionsCount) {
-        HapticFeedback.selectionClick();
-      }
-      _prevDetectionsCount = results.length;
-
-      if (mounted) {
-        setState(() {
-          _recognitions = results;
-          _inferenceTimeMs = elapsed;
-          if (diff > 0) {
-            _fps = (1000.0 / diff);
-          }
-        });
-      }
-    } catch (e) {
-      debugPrint('Error processing camera frame: $e');
-    } finally {
-      _isProcessing = false;
+      _feedFrames = 0;
+      _feedWatch.reset();
     }
+    final controller = _cameraController;
+    if (controller == null ||
+        _isPaused ||
+        _isSaving ||
+        _errorMessage != null ||
+        !_detector.isModelLoaded) {
+      return;
+    }
+    final orientation =
+        controller.value.lockedCaptureOrientation ??
+        controller.value.deviceOrientation;
+    if (_frameOrientation != orientation) {
+      _frameOrientation = orientation;
+      _liveDetection.invalidate();
+      setState(() => _recognitions = []);
+    }
+    // AVFoundation delivers upright buffers (already mirrored for the front
+    // camera). CameraX buffers need sensor/device rotation before inference.
+    final degrees = switch (orientation) {
+      DeviceOrientation.portraitUp => 0,
+      DeviceOrientation.landscapeLeft => 90,
+      DeviceOrientation.portraitDown => 180,
+      DeviceOrientation.landscapeRight => 270,
+    };
+    final front =
+        controller.description.lensDirection == CameraLensDirection.front;
+    final rotation = Platform.isIOS
+        ? 0
+        : (controller.description.sensorOrientation +
+                  (front ? degrees : -degrees) +
+                  360) %
+              360;
+    unawaited(
+      _liveDetection.submit(
+        () => _detector.detectOnCameraImage(
+          image,
+          rotation: rotation,
+          scoreThreshold: 0.25,
+          iouThreshold: 0.45,
+        ),
+      ),
+    );
   }
 
   Future<void> _toggleTorch() async {
@@ -211,6 +266,7 @@ class _DetectorScreenState extends State<DetectorScreen>
   }
 
   Future<void> _takeSnapshot() async {
+    if (_isSaving) return;
     final controller = _cameraController;
     if (widget.cameraPreviewOverride == null &&
         (controller == null || !controller.value.isInitialized)) {
@@ -225,23 +281,32 @@ class _DetectorScreenState extends State<DetectorScreen>
     });
 
     try {
+      _isSaving = true;
       if (controller != null && controller.value.isInitialized) {
+        _liveDetection.invalidate();
+        await _liveDetection.idle;
+        if (!mounted) return;
         final picture = await controller.takePicture();
-        await _storage.saveSnapshot(
-          picture: picture,
-          recognitions: List.of(_recognitions),
+        final detections = await _detector.detectOnImageFile(
+          File(picture.path),
         );
+        await _storage.saveSnapshot(picture: picture, recognitions: detections);
+        _showToast('Saved to App (${detections.length} defects)');
+        return;
       }
       _showToast(
         'Saved to Camera Roll & App (${_recognitions.length} defects)',
       );
     } catch (e) {
       debugPrint('Error saving snapshot: $e');
-      _showToast('Frame saved (${_recognitions.length} defects)');
+      _showToast('Could not save frame. Please try again.');
+    } finally {
+      _isSaving = false;
     }
   }
 
   void _showToast(String message) {
+    if (!mounted) return;
     _toastTimer?.cancel();
     setState(() => _toastMessage = message);
     _toastTimer = Timer(const Duration(seconds: 2), () {
@@ -250,19 +315,26 @@ class _DetectorScreenState extends State<DetectorScreen>
   }
 
   Future<void> _toggleCamera() async {
-    if (_availableCameras.length <= 1) return;
+    if (_availableCameras.length <= 1 || _isSwitchingCamera || _isSaving) {
+      return;
+    }
 
     HapticFeedback.lightImpact();
-    setState(() => _isInitialized = false);
-    await _cameraController?.stopImageStream();
-    await _cameraController?.dispose();
-
-    _selectedCameraIndex =
-        (_selectedCameraIndex + 1) % _availableCameras.length;
-    await _initCamera(_availableCameras[_selectedCameraIndex]);
+    setState(() {
+      _isInitialized = false;
+      _isSwitchingCamera = true;
+    });
+    try {
+      _selectedCameraIndex =
+          (_selectedCameraIndex + 1) % _availableCameras.length;
+      await _replaceCamera(_availableCameras[_selectedCameraIndex]);
+    } finally {
+      if (mounted) setState(() => _isSwitchingCamera = false);
+    }
   }
 
   void _togglePause() {
+    _liveDetection.invalidate();
     HapticFeedback.lightImpact();
     setState(() {
       _isPaused = !_isPaused;
@@ -421,13 +493,15 @@ class _DetectorScreenState extends State<DetectorScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final controller = _cameraController;
-    if (controller == null || !controller.value.isInitialized) return;
-
     if (state == AppLifecycleState.inactive) {
-      controller.dispose();
+      _appActive = false;
+      setState(() => _isInitialized = false);
+      unawaited(_replaceCamera(null));
     } else if (state == AppLifecycleState.resumed) {
-      _initCamera(_availableCameras[_selectedCameraIndex]);
+      _appActive = true;
+      if (_availableCameras.isNotEmpty && _detector.isModelLoaded) {
+        unawaited(_replaceCamera(_availableCameras[_selectedCameraIndex]));
+      }
     }
   }
 
@@ -435,7 +509,10 @@ class _DetectorScreenState extends State<DetectorScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _toastTimer?.cancel();
-    _cameraController?.dispose();
+    _liveDetection.dispose();
+    _cameraGeneration++;
+    // Serialize disposal behind any in-progress initialize/start operation.
+    unawaited(_cameraOperation.then((_) => _cameraController?.dispose()));
     if (widget.detectorService == null) {
       _detector.dispose();
     }
@@ -506,8 +583,14 @@ class _DetectorScreenState extends State<DetectorScreen>
 
     final size = MediaQuery.of(context).size;
     final camera = _cameraController;
+    final orientation =
+        camera?.value.lockedCaptureOrientation ??
+        camera?.value.deviceOrientation;
+    final portrait =
+        orientation != DeviceOrientation.landscapeLeft &&
+        orientation != DeviceOrientation.landscapeRight;
     final previewRatio = camera != null
-        ? 1 / camera.value.aspectRatio
+        ? (portrait ? 1 / camera.value.aspectRatio : camera.value.aspectRatio)
         : (9.0 / 16.0);
 
     return Scaffold(
@@ -524,12 +607,23 @@ class _DetectorScreenState extends State<DetectorScreen>
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  widget.cameraPreviewOverride ??
-                      (camera != null
-                          ? CameraPreview(camera)
-                          : const SizedBox.shrink()),
-                  CustomPaint(
-                    painter: BoundingBoxPainter(recognitions: _recognitions),
+                  RepaintBoundary(
+                    child:
+                        widget.cameraPreviewOverride ??
+                        (camera != null
+                            ? CameraPreview(camera)
+                            : const SizedBox.shrink()),
+                  ),
+                  RepaintBoundary(
+                    child: CustomPaint(
+                      painter: BoundingBoxPainter(
+                        recognitions: _recognitions,
+                        mirror:
+                            !Platform.isIOS &&
+                            camera?.description.lensDirection ==
+                                CameraLensDirection.front,
+                      ),
+                    ),
                   ),
                 ],
               ),
